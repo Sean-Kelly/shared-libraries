@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.codex/footer/stop-status-hook.py",
+            "timeout": 8,
+            "statusMessage": "Reporting Codex turn status"
+          }
+        ]
+      }
+    ]
+  }
+}
