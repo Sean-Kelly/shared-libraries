@@ -29,6 +29,9 @@ private knowledge base.
 
 ## Layout
 
+- `cdx/common/AGENTS.md` — portable baseline instructions for a user-level
+  Codex installation. Copy this reviewed baseline into the target machine's
+  `~/.codex/AGENTS.md`; do not copy authentication, hooks, or `config.toml`.
 - `cdx/mac/footer/` — macOS turn-footer scripts and hook configuration for
   Codex CLI.
 
