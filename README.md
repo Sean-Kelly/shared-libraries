@@ -22,6 +22,9 @@ private knowledge base.
 - Publish only files that are safe to make public.
 - Remove credentials, tokens, session data, personal paths, private records,
   and transcripts before publishing.
+- This repository may distribute reviewed archival tooling, but never raw Codex
+  JSONL transcripts, generated archives, or transcript manifests. Configure
+  every archive destination locally to an approved private location.
 - Prefer small, focused directories with a README that explains installation,
   dependencies, and verification.
 - Treat each work-environment adaptation as a copy or extension: validate it
