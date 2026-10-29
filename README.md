@@ -42,6 +42,8 @@ private knowledge base.
   Codex CLI.
 - `browser/bookmarklets/utdl/v002/` — plain-source Universal Tab Download
   bookmarklet, which downloads Markdown and HTML captures separately.
+- `browser/bookmarklets/utdl/v003/` — plain-source Universal Tab Download
+  bookmarklet, which places those two captures in one browser-generated ZIP.
 
 This layout will grow as additional home tooling is made portable and reviewed
 for work use.
