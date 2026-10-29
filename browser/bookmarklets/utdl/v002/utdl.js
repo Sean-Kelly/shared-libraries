@@ -1,0 +1,310 @@
+// UTDL — Universal Tab Download Bookmarklet
+
+// One click, two downloads:
+//   1. <title>--archive--<timestamp>.html  — the whole page, self-contained
+//      (images embedded as base64 data: URIs, stylesheets inlined). This is
+//      NOT true .mhtml (that format needs a browser-privileged API a plain
+//      bookmarklet can't call) — it is a self-contained single-file HTML
+//      archive, the same technique the SingleFile extension uses. Opens in
+//      any browser, no separate asset files, no network needed to view it.
+//   2. <title>--text--<timestamp>.md       — extracted text as Markdown,
+//      with tables, headings, lists, links and code blocks preserved.
+//
+// Known limitations (disclosed, not hidden):
+//   - CSS background-images and @font-face assets are NOT embedded (only
+//     <img> elements and linked stylesheets). Layout mostly holds because
+//     browsers fall back to system fonts; background images will 404 if
+//     viewed offline.
+//   - Cross-origin images without CORS headers can't be fetched into a data
+//     URI — they fall back to their absolute URL instead (still viewable
+//     online, not embedded).
+//   - Table colspan is approximated (empty padding cells); rowspan is not
+//     supported in the Markdown table output.
+//   - Sites with very strict CSP (Google's own properties — this is what
+//     killed the original 2026-04 attempt on Gemini) may still block the
+//     blob download entirely. That is a platform restriction a bookmarklet
+//     cannot work around without extension-level permissions — not fixed
+//     here, same as before.
+
+(function () {
+  'use strict';
+
+  var PAGE_URL = location.href;
+  var PAGE_TITLE = document.title || 'untitled';
+
+  function absUrl(u) {
+    try { return new URL(u, PAGE_URL).href; } catch (e) { return u; }
+  }
+
+  function timestamp() {
+    // Local timestamp convention: YYYY-MM-DD--HHMM
+    var d = new Date();
+    function pad(n) { return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      '--' + pad(d.getHours()) + pad(d.getMinutes());
+  }
+
+  function sanitizeFilename(s) {
+    var slug = (s || 'untitled')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    slug = slug.slice(0, 80).replace(/-+$/g, '');
+    return slug || 'untitled';
+  }
+
+  function download(filename, content, mime) {
+    var blob = new Blob([content], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+  }
+
+  function toDataURL(url) {
+    return fetch(url, { mode: 'cors', credentials: 'omit' })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('bad status ' + resp.status);
+        return resp.blob();
+      })
+      .then(function (blob) {
+        return new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () { resolve(reader.result); };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      })
+      .catch(function () { return null; });
+  }
+
+  function showStatus(text) {
+    var id = '__utdl_status__';
+    var el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;' +
+        'background:#111;color:#fff;font:13px/1.4 sans-serif;padding:8px 14px;' +
+        'border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:.95;';
+      document.body.appendChild(el);
+    }
+    el.textContent = 'UTDL: ' + text;
+    return el;
+  }
+
+  function removeStatus(delay) {
+    setTimeout(function () {
+      var el = document.getElementById('__utdl_status__');
+      if (el) el.remove();
+    }, delay || 2500);
+  }
+
+  // ---------- Part 1: full-page self-contained HTML archive ----------
+
+  function buildArchive() {
+    var clone = document.documentElement.cloneNode(true);
+
+    Array.prototype.forEach.call(clone.querySelectorAll('script'), function (s) {
+      s.remove();
+    });
+
+    var imgs = Array.prototype.slice.call(clone.querySelectorAll('img'));
+    var liveImgs = Array.prototype.slice.call(document.querySelectorAll('img'));
+
+    var imgWork = imgs.map(function (img, i) {
+      var live = liveImgs[i];
+      var src = absUrl((live && (live.currentSrc || live.src)) || img.getAttribute('src') || '');
+      img.removeAttribute('srcset');
+      img.removeAttribute('sizes');
+      if (!src) return Promise.resolve();
+      return toDataURL(src).then(function (dataUrl) {
+        img.setAttribute('src', dataUrl || src);
+        if (!dataUrl) img.setAttribute('data-utdl-not-embedded', 'cross-origin-or-fetch-failed');
+      });
+    });
+
+    var links = Array.prototype.slice.call(clone.querySelectorAll('link[rel~="stylesheet"]'));
+    var styleWork = links.map(function (link) {
+      var href = absUrl(link.getAttribute('href') || '');
+      if (!href) return Promise.resolve();
+      return fetch(href, { mode: 'cors', credentials: 'omit' })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .catch(function () { return null; })
+        .then(function (css) {
+          if (css) {
+            var styleEl = document.createElement('style');
+            styleEl.textContent = css;
+            styleEl.setAttribute('data-utdl-inlined-from', href);
+            link.replaceWith(styleEl);
+          } else {
+            link.setAttribute('href', href);
+          }
+        });
+    });
+
+    Array.prototype.forEach.call(clone.querySelectorAll('a[href]'), function (a) {
+      a.setAttribute('href', absUrl(a.getAttribute('href')));
+    });
+    Array.prototype.forEach.call(clone.querySelectorAll('iframe[src]'), function (f) {
+      f.setAttribute('src', absUrl(f.getAttribute('src')));
+    });
+
+    return Promise.all(imgWork.concat(styleWork)).then(function () {
+      var comment = '<!-- captured via UTDL from ' + PAGE_URL + ' at ' +
+        new Date().toISOString() + ' -->\n';
+      return '<!doctype html>\n' + comment + clone.outerHTML;
+    });
+  }
+
+  // ---------- Part 2: DOM-to-Markdown text extraction ----------
+
+  var BLOCK_TAGS = {
+    P: 1, DIV: 1, SECTION: 1, ARTICLE: 1, MAIN: 1, HEADER: 1, FOOTER: 1,
+    NAV: 1, ASIDE: 1, FIGURE: 1, FIGCAPTION: 1, ADDRESS: 1
+  };
+  var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEMPLATE: 1, SVG: 1 };
+
+  function isHidden(el) {
+    if (el.hasAttribute('hidden')) return true;
+    if (el.getAttribute('aria-hidden') === 'true') return true;
+    var cs = window.getComputedStyle(el);
+    return cs.display === 'none' || cs.visibility === 'hidden';
+  }
+
+  function escCell(s) {
+    return String(s).replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim();
+  }
+
+  function tableToMd(table) {
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tr'));
+    if (!rows.length) return '';
+    var out = [];
+    rows.forEach(function (row, ri) {
+      var cells = Array.prototype.slice.call(row.querySelectorAll('th,td'));
+      var parts = [];
+      cells.forEach(function (cell) {
+        var span = parseInt(cell.getAttribute('colspan') || '1', 10) || 1;
+        parts.push(escCell(cell.textContent));
+        for (var i = 1; i < span; i++) parts.push('');
+      });
+      out.push('| ' + parts.join(' | ') + ' |');
+      if (ri === 0) {
+        out.push('| ' + parts.map(function () { return '---'; }).join(' | ') + ' |');
+      }
+    });
+    return out.join('\n') + '\n\n';
+  }
+
+  function listToMd(list, ordered, indent) {
+    indent = indent || '';
+    var items = Array.prototype.filter.call(list.children, function (c) {
+      return c.tagName === 'LI';
+    });
+    var out = '';
+    items.forEach(function (li, i) {
+      var prefix = ordered ? (i + 1) + '. ' : '- ';
+      var nested = Array.prototype.filter.call(li.children, function (c) {
+        return c.tagName === 'UL' || c.tagName === 'OL';
+      });
+      nested.forEach(function (n) { n.remove(); });
+      out += indent + prefix + nodeToMd(li).trim().replace(/\n+/g, ' ') + '\n';
+      nested.forEach(function (n) {
+        out += listToMd(n, n.tagName === 'OL', indent + ' ');
+      });
+    });
+    return out;
+  }
+
+  function nodeToMd(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent.replace(/\s+/g, ' ');
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    var tag = node.tagName;
+    if (SKIP_TAGS[tag]) return '';
+    if (isHidden(node)) return '';
+
+    if (/^H[1-6]$/.test(tag)) {
+      var level = Number(tag[1]);
+      return '\n' + '#'.repeat(level) + ' ' + childrenToMd(node).trim() + '\n\n';
+    }
+    switch (tag) {
+      case 'BR': return '\n';
+      case 'HR': return '\n---\n\n';
+      case 'STRONG': case 'B': return '**' + childrenToMd(node).trim() + '**';
+      case 'EM': case 'I': return '_' + childrenToMd(node).trim() + '_';
+      case 'CODE':
+        if (node.parentElement && node.parentElement.tagName === 'PRE') break;
+        return '`' + node.textContent + '`';
+      case 'PRE': {
+        var langMatch = /language-(\w+)/.exec(node.className || '');
+        var lang = langMatch ? langMatch[1] : '';
+        return '\n```' + lang + '\n' + node.textContent.replace(/\n+$/, '') + '\n```\n\n';
+      }
+      case 'A': {
+        var href = absUrl(node.getAttribute('href') || '');
+        var text = childrenToMd(node).trim() || href;
+        return href ? '[' + text + '](' + href + ')' : text;
+      }
+      case 'IMG': {
+        var src = absUrl(node.getAttribute('src') || '');
+        var alt = node.getAttribute('alt') || '';
+        return src ? '![' + alt + '](' + src + ')' : '';
+      }
+      case 'UL': return '\n' + listToMd(node, false) + '\n';
+      case 'OL': return '\n' + listToMd(node, true) + '\n';
+      case 'BLOCKQUOTE': {
+        var lines = childrenToMd(node).trim().split('\n');
+        return '\n' + lines.map(function (l) { return '> ' + l; }).join('\n') + '\n\n';
+      }
+      case 'TABLE': return '\n' + tableToMd(node);
+    }
+
+    var inner = childrenToMd(node);
+    if (BLOCK_TAGS[tag]) return '\n' + inner.trim() + '\n\n';
+    return inner;
+  }
+
+  function childrenToMd(node) {
+    var out = '';
+    Array.prototype.forEach.call(node.childNodes, function (child) {
+      out += nodeToMd(child);
+    });
+    return out;
+  }
+
+  function buildMarkdown() {
+    var header = '# ' + PAGE_TITLE + '\n\nSource: ' + PAGE_URL +
+      '\nCaptured: ' + new Date().toISOString() + '\n\n---\n\n';
+    var body = childrenToMd(document.body)
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    return header + body + '\n';
+  }
+
+  // ---------- orchestration ----------
+
+  // YYYY-MM-DD--HHMM--<type>--<slug>.<ext>  — timestamp leads, slug trails
+  var ts = timestamp();
+  var slug = sanitizeFilename(PAGE_TITLE);
+
+  showStatus('extracting text...');
+  var md = buildMarkdown();
+  download(ts + '--text--' + slug + '.md', md, 'text/markdown');
+
+  showStatus('archiving page + images...');
+  buildArchive().then(function (html) {
+    download(ts + '--archive--' + slug + '.html', html, 'text/html');
+    showStatus('done—2 files downloaded');
+    removeStatus();
+  }).catch(function (err) {
+    showStatus('archive failed: ' + err.message + ' (text.md already saved)');
+    removeStatus(6000);
+  });
+})();

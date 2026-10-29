@@ -40,6 +40,8 @@ private knowledge base.
   records or transcripts.
 - `cdx/mac/footer/` — macOS turn-footer scripts and hook configuration for
   Codex CLI.
+- `browser/bookmarklets/utdl/v002/` — plain-source Universal Tab Download
+  bookmarklet, which downloads Markdown and HTML captures separately.
 
 This layout will grow as additional home tooling is made portable and reviewed
 for work use.
