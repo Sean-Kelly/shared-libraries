@@ -35,11 +35,10 @@ private knowledge base.
 - `cdx/common/AGENTS.md` — portable baseline instructions for a user-level
   Codex installation. Copy this reviewed baseline into the target machine's
   `~/.codex/AGENTS.md`; do not copy authentication, hooks, or `config.toml`.
-- `cdx/common/DURABLE-CONTEXT-HANDOFF.md` — public-safe pattern for preserving
-  material context across AI session boundaries without exporting private
-  records or transcripts.
 - `cdx/mac/footer/` — macOS turn-footer scripts and hook configuration for
   Codex CLI.
+- `agent-continuity/` — provider-neutral durable-context and cold-start audit
+  patterns for AI-agent workspaces.
 - `browser/bookmarklets/utdl/v002/` — plain-source Universal Tab Download
   bookmarklet, which downloads Markdown and HTML captures separately.
 - `browser/bookmarklets/utdl/v003/` — plain-source Universal Tab Download
