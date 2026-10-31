@@ -21,6 +21,8 @@ not require a specific provider's memory, session, or workspace feature.
   context across session boundaries.
 - `cold-start-continuity-audit.md` — a copy/paste prompt that tests whether a
   fresh agent can reconstruct local state without relying on earlier chat.
+- `scope-preserving-guidance.md` — a method for separating portable constraints
+  from local tools, interfaces, and conventions when documenting a lesson.
 
 ## Use
 

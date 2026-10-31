@@ -18,3 +18,17 @@
   `YYYY-MM-DD--HHMM--<type>--<slug>.<ext>`.
 - Use lowercase, hyphen-separated slugs; do not use colons, AM/PM, or
   American numeric dates in filenames.
+
+## Reusable Guidance
+
+- When promoting a task-specific observation, incident, or repair into reusable
+  guidance, state the portable invariant and decision condition first. Keep named
+  tools, fields, workflows, and conventions in a conditional local procedure unless
+  their portability is established.
+
+## Environment Boundaries
+
+- Treat workspace, repository, branch, remote host, visibility, and publication path
+  as independent facts. Do not infer one from another. Before recommending, linking,
+  copying, or publishing an artifact, name the intended target and verify the
+  attributes relevant to that action; if the target is unspecified, ask.
