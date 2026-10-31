@@ -1,8 +1,8 @@
 # Shared Libraries
 
 This repository is a small, public collection of portable setup files and
-utilities that can be adapted between environments, including a work Codex
-installation.
+utilities that can be adapted between agent runtimes and environments,
+including a work Codex installation.
 
 ## Navigation map
 
@@ -32,9 +32,18 @@ private knowledge base.
 
 ## Layout
 
-- `cdx/common/AGENTS.md` — portable baseline instructions for a user-level
-  Codex installation. Copy this reviewed baseline into the target machine's
-  `~/.codex/AGENTS.md`; do not copy authentication, hooks, or `config.toml`.
+- `agent-continuity/common-agent-instructions.md` — canonical provider-neutral
+  operating rules and the contract for runtime adapters.
+- `cdx/common/AGENTS.md` — a thin Codex adapter. Install it with the common
+  instructions beside it as `~/.codex/AGENTS.md` and
+  `~/.codex/common-agent-instructions.md`; do not copy authentication, hooks,
+  or `config.toml`.
+- `claude/common/CLAUDE.md` — a Claude Code adapter. Install it with the
+  common instructions as `~/.claude/CLAUDE.md` and
+  `~/.claude/common-agent-instructions.md`.
+- `mistral-vibe/common/AGENTS.md` — a Mistral Vibe Code adapter. Install it
+  with the common instructions as `~/.vibe/AGENTS.md` and
+  `~/.vibe/common-agent-instructions.md`.
 - `cdx/mac/footer/` — macOS turn-footer scripts and hook configuration for
   Codex CLI.
 - `agent-continuity/` — provider-neutral durable-context and cold-start audit
