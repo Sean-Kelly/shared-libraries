@@ -9,6 +9,7 @@ configuration model.
 
 - Purpose and boundary
 - Universal operating rules
+- Agent architecture and autonomy boundary
 - Guidance promotion
 - Environment and publication targets
 - Adapter contract
@@ -39,6 +40,43 @@ names out of this file. Put those in a thin adapter for the named runtime.
 - Use `YYYY-MM-DD--HHMM--<type>--<slug>.<ext>` for chronologically sortable
   artifact filenames. Use lowercase, hyphen-separated slugs; do not use
   colons, AM/PM, or American numeric dates in filenames.
+
+## Agent architecture and autonomy boundary
+
+### Model, agent, and harness
+
+- A **model** produces or evaluates content.
+- An **agent** is a model configured with a role, instructions, and available
+  tools.
+- A **harness** supplies the runtime around an agent: context and instruction
+  loading, tool execution, permissions, session state, scheduling, and
+  observability.
+
+Do not infer a harness's capabilities or protections from the model name. A
+model can be local while its harness still has network access, cloud-connected
+tools, or broad local authority.
+
+### Autonomous-agent boundary
+
+Model locality or provider choice does not reduce the risk created by an
+agent's permissions, autonomy, or integrations.
+
+Before relying on an agent that can use tools, access credentials or data, act
+on a schedule, retry independently, or contact external systems, identify:
+
+1. its authorized actions and data boundary;
+2. the containment or isolation boundary for tools and credentials;
+3. which actions require confirmation and which are permitted unattended;
+4. resource ceilings for time, tokens or model cost, storage, and external
+   side effects;
+5. the logs or readbacks that prove what happened; and
+6. the stop, rollback, and recovery path.
+
+Choose controls in proportion to the authority granted. A read-only local
+assistant and a scheduled agent with email, shell, or browser authority do not
+have the same decision boundary. Treat third-party tools, plugins, and skills
+as code with the agent's effective privileges unless an independent containment
+boundary has been verified.
 
 ## Guidance promotion
 
